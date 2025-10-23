@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Scratchpad Homepage</title>
+  <!--
+  HOW TO USE
+  ==========
+  1) Save this file as scratchpad.html anywhere on your computer.
+  2) In Chrome: Settings → On startup → Open a specific page → choose this file
+     (use the file:/// path), or serve it locally (e.g., `python -m http.server`) and
+     set homepage to http://localhost:8000/scratchpad.html
+  3) Everything saves to localStorage on this device. No backend or extension needed.
+
+  FEATURES
+  ========
+  • Rich text editor with toolbar (bold/italic/underline, headings, lists, links, undo/redo)
+  • Auto‑save of content
+  • Bookmarks navbar with Add/Edit/Delete (persisted)
+  • Weather widget (Open‑Meteo, no API key). Uses geolocation if allowed, or a saved city.
+  • Clock + Greeting and a compact daily to‑do list (optional)
+
+  NOTES
+  =====
+  • This uses document.execCommand for simple rich‑text; it’s deprecated but still widely supported in Chrome.
+  • If network calls are restricted from file:// pages on your system, serve this via a local server.
+  -->
+  <style>
+    :root{
+      --bg: #0f172a;          /* slate-900 */
+      --card: #111827;        /* gray-900 */
+      --muted: #64748b;       /* slate-500 */
+      --text: #e5e7eb;        /* gray-200 */
+      --accent: #22c55e;      /* green-500 */
+      --accent-2: #60a5fa;    /* blue-400 */
+      --danger: #ef4444;      /* red-500 */
+      --border: #1f2937;      /* gray-800 */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:linear-gradient(180deg, #0b1220, #0f172a);
+      color:var(--text);
+      font: 16px/1.5 Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    .app{
+      display:grid;
+      grid-template-rows: auto auto 1fr;
+      grid-template-columns: 1fr;
+      min-height:100vh;
+    }
+
+    /* NAVBAR (Bookmarks) */
+    .navbar{
+      display:flex; gap:.5rem; align-items:center; padding:.75rem 1rem; border-bottom:1px solid var(--border);
+      background:rgba(17,24,39,.7); backdrop-filter: blur(10px); position:sticky; top:0; z-index:20;
+    }
+    .nav-title{font-weight:700; letter-spacing:.3px; margin-right:.5rem}
+    .bookmarks{display:flex; gap:.35rem; flex-wrap:wrap}
+    .chip{
+      border:1px solid var(--border); background:#0b1220; padding:.35rem .6rem; border-radius:999px; text-decoration:none; color:var(--text);
+      display:inline-flex; align-items:center; gap:.4rem; transition:all .15s ease; white-space:nowrap; max-width:240px; overflow:hidden; text-overflow:ellipsis;
+    }
+    .chip:hover{border-color:#334155; transform:translateY(-1px)}
+    .chip .xbtn{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:.9rem}
+    .nav-actions{margin-left:auto; display:flex; gap:.5rem}
+    .btn{
+      border:1px solid var(--border); background:linear-gradient(180deg, #0f172a, #0b1220); color:var(--text);
+      border-radius:.6rem; padding:.45rem .75rem; cursor:pointer; display:inline-flex; gap:.4rem; align-items:center;
+    }
+    .btn:hover{border-color:#334155}
+
+    /* TOP BAR (Toolbar + Info) */
+    .topbar{display:flex; gap:1rem; padding: .6rem 1rem; border-bottom:1px solid var(--border); align-items:center; background:rgba(2,6,23,.6);}
+    .toolbar{display:flex; gap:.35rem; flex-wrap:wrap}
+    .tbtn{border:1px solid var(--border); background:#0b1220; color:var(--text); border-radius:.5rem; padding:.35rem .55rem; cursor:pointer}
+    .tbtn:hover{border-color:#334155}
+    .divider{width:1px; background:var(--border); margin:0 .25rem}
+    .status{margin-left:auto; display:flex; gap:1rem; color:var(--muted); font-size:.9rem}
+
+    /* LAYOUT */
+    .main{display:grid; grid-template-columns: 1fr 320px; gap:1rem; padding:1rem;}
+    @media (max-width: 960px){ .main{ grid-template-columns: 1fr; } }
+
+    /* EDITOR CARD */
+    .card{background:rgba(17,24,39,.6); border:1px solid var(--border); border-radius:1rem; box-shadow: 0 10px 30px rgba(0,0,0,.25);}
+    .editor{min-height:60vh; padding:1rem 1.2rem; outline:none; font-size:1.05rem}
+    .editor:empty:before{content:"Type / to insert…"; color:var(--muted)}
+
+    /* SIDEBAR */
+    .sidebar{display:grid; gap:1rem}
+    .card h3{margin:.9rem 1rem .3rem; font-size:1rem; color:#d1d5db}
+    .card .content{padding: .1rem 1rem 1rem}
+
+    /* TODO */
+    .todo-list{display:grid; gap:.4rem}
+    .todo-item{display:flex; gap:.6rem; align-items:center}
+    .todo-item input[type="text"]{flex:1; padding:.4rem .6rem; border-radius:.4rem; border:1px solid var(--border); background:#0b1220; color:var(--text)}
+    .todo-item button{border:1px solid var(--border); background:#0b1220; color:var(--text); border-radius:.4rem; padding:.35rem .55rem; cursor:pointer}
+
+    /* WEATHER */
+    .weather{display:flex; align-items:center; justify-content:space-between}
+    .weather .temp{font-size:2rem; font-weight:700}
+    .muted{color:var(--muted)}
+    .link{color:var(--accent-2); cursor:pointer}
+    .link:hover{text-decoration:underline}
+
+    /* FOOTER */
+    .footer{padding:1rem; text-align:center; color:var(--muted); font-size:.9rem}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- NAVBAR: Bookmarks -->
+    <div class="navbar">
+      <div class="nav-title">⭐ Bookmarks</div>
+      <div id="bookmarks" class="bookmarks"></div>
+      <div class="nav-actions">
+        <button class="btn" id="addBookmarkBtn" title="Add bookmark">＋ Add</button>
+        <button class="btn" id="editBookmarksBtn" title="Reorder or edit">✎ Edit</button>
+        <button class="btn" id="resetBookmarksBtn" title="Reset bookmarks">↺ Reset</button>
+      </div>
+    </div>
+
+    <!-- TOPBAR: Toolbar + Status -->
+    <div class="topbar">
+      <div class="toolbar" id="toolbar">
+        <button class="tbtn" data-cmd="bold" title="Bold">B</button>
+        <button class="tbtn" data-cmd="italic" title="Italic"><em>I</em></button>
+        <button class="tbtn" data-cmd="underline" title="Underline"><u>U</u></button>
+        <span class="divider"></span>
+        <button class="tbtn" data-block="h1" title="H1">H1</button>
+        <button class="tbtn" data-block="h2" title="H2">H2</button>
+        <button class="tbtn" data-block="p" title="Paragraph">¶</button>
+        <span class="divider"></span>
+        <button class="tbtn" data-cmd="insertUnorderedList" title="Bulleted list">• List</button>
+        <button class="tbtn" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
+        <button class="tbtn" id="linkBtn" title="Insert link">🔗 Link</button>
+        <span class="divider"></span>
+        <button class="tbtn" data-cmd="undo" title="Undo">↶</button>
+        <button class="tbtn" data-cmd="redo" title="Redo">↷</button>
+        <button class="tbtn" id="clearBtn" title="Clear page">🗑</button>
+      </div>
+      <div class="status">
+        <span id="clock">--:--</span>
+        <span id="saveStatus" class="muted">Saved</span>
+      </div>
+    </div>
+
+    <!-- MAIN: Editor + Sidebar -->
+    <div class="main">
+      <div class="card">
+        <div id="editor" class="editor" contenteditable="true" spellcheck="true"></div>
+      </div>
+
+      <div class="sidebar">
+        <div class="card">
+          <h3>Weather <span id="cityLabel" class="muted"></span></h3>
+          <div class="content">
+            <div class="weather">
+              <div>
+                <div class="temp" id="temp">--°</div>
+                <div class="muted" id="conditions">—</div>
+              </div>
+              <div>
+                <div class="muted" id="wind">—</div>
+                <div class="muted" id="updated">—</div>
+              </div>
+            </div>
+            <div style="margin-top:.6rem; display:flex; gap:.75rem; align-items:center;">
+              <button class="btn" id="refreshWeather">Refresh</button>
+              <button class="btn" id="setCity">Set City</button>
+              <button class="btn" id="toggleUnits">Units: <span id="unitsLabel">C</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Today</h3>
+          <div class="content">
+            <div id="greeting" class="muted" style="margin-bottom:.5rem;">Have a great day!</div>
+            <div class="todo-list" id="todoList"></div>
+            <div style="margin-top:.5rem; display:flex; gap:.5rem;">
+              <button class="btn" id="addTodo">＋ Add item</button>
+              <button class="btn" id="clearCompleted">Clear done</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">Your notes and settings are stored locally in this browser.</div>
+  </div>
+
+  <script>
+    /* =====================
+       Storage helpers
+    ====================== */
+    const LS = {
+      get(key, fallback){
+        try{ return JSON.parse(localStorage.getItem(key)) ?? fallback; }catch(e){ return fallback; }
+      },
+      set(key, val){ localStorage.setItem(key, JSON.stringify(val)); },
+      del(key){ localStorage.removeItem(key); }
+    };
+
+    /* =====================
+       Bookmarks Navbar
+    ====================== */
+    const bmKey = 'sp_bookmarks_v1';
+    const bookmarksEl = document.getElementById('bookmarks');
+
+    function renderBookmarks(){
+      bookmarksEl.innerHTML = '';
+      const list = LS.get(bmKey, []);
+      list.forEach((b, idx)=>{
+        const a = document.createElement('a');
+        a.href = b.url; a.target = '_self'; a.className = 'chip';
+        a.title = b.url; a.textContent = b.title || b.url;
+        if (editMode){
+          const x = document.createElement('button'); x.className='xbtn'; x.textContent='✕';
+          x.onclick = (e)=>{ e.preventDefault(); list.splice(idx,1); LS.set(bmKey, list); renderBookmarks(); };
+          a.appendChild(x);
+        }
+        bookmarksEl.appendChild(a);
+      });
+    }
+
+    function addBookmark(){
+      const url = prompt('Bookmark URL (include https://):');
+      if(!url) return;
+      const title = prompt('Display title:', url.replace(/^https?:\/\//,''));
+      const list = LS.get(bmKey, []);
+      list.push({title, url});
+      LS.set(bmKey, list);
+      renderBookmarks();
+    }
+
+    function resetBookmarks(){
+      if(confirm('Reset all bookmarks?')){ LS.del(bmKey); renderBookmarks(); }
+    }
+
+    let editMode = false;
+    document.getElementById('addBookmarkBtn').onclick = addBookmark;
+    document.getElementById('resetBookmarksBtn').onclick = resetBookmarks;
+    document.getElementById('editBookmarksBtn').onclick = ()=>{ editMode = !editMode; renderBookmarks(); };
+
+    /* =====================
+       Editor + Toolbar
+    ====================== */
+    const editor = document.getElementById('editor');
+    const saveStatus = document.getElementById('saveStatus');
+    const contentKey = 'sp_content_html_v1';
+
+    editor.innerHTML = LS.get(contentKey, '') || '';
+
+    function debounce(fn, ms=400){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+
+    const saveContent = debounce(()=>{
+      LS.set(contentKey, editor.innerHTML);
+      saveStatus.textContent = 'Saved';
+    }, 400);
+
+    editor.addEventListener('input', ()=>{ saveStatus.textContent = 'Saving…'; saveContent(); });
+
+    // Toolbar commands
+    document.getElementById('toolbar').addEventListener('click', (e)=>{
+      const btn = e.target.closest('button'); if(!btn) return;
+      const cmd = btn.dataset.cmd; const block = btn.dataset.block;
+      editor.focus();
+      if(cmd){ document.execCommand(cmd, false, null); return; }
+      if(block){
+        const tag = block === 'p' ? 'P' : block.toUpperCase();
+        document.execCommand('formatBlock', false, tag);
+        return;
+      }
+    });
+
+    document.getElementById('linkBtn').onclick = ()=>{
+      const url = prompt('Link URL:');
+      if(url){ document.execCommand('createLink', false, url); }
+      editor.focus();
+    };
+
+    document.getElementById('clearBtn').onclick = ()=>{
+      if(confirm('Clear the page? This cannot be undone.')){
+        editor.innerHTML = ''; LS.del(contentKey); saveStatus.textContent='Saved';
+      }
+    };
+
+    // Simple "/" menu for quick blocks
+    editor.addEventListener('keydown', (e)=>{
+      if(e.key === '/' && !e.shiftKey){
+        // show tiny hint via status text
+        saveStatus.textContent = 'Type: h1, h2, p, ul, ol, todo';
+      }
+      if(e.key === 'Enter') saveStatus.textContent = 'Saved';
+    });
+
+    /* =====================
+       Clock + Greeting
+    ====================== */
+    function pad(n){ return n.toString().padStart(2,'0'); }
+    const clockEl = document.getElementById('clock');
+    const greetingEl = document.getElementById('greeting');
+
+    function tick(){
+      const d = new Date();
+      const h = d.getHours(), m = d.getMinutes();
+      clockEl.textContent = `${pad(h)}:${pad(m)}`;
+      const g = h<12? 'Good morning' : h<18? 'Good afternoon' : 'Good evening';
+      greetingEl.textContent = `${g}!`;
+    }
+    setInterval(tick, 1000); tick();
+
+    /* =====================
+       Todo List (simple)
+    ====================== */
+    const todoKey = 'sp_todos_v1';
+    const todoListEl = document.getElementById('todoList');
+
+    function renderTodos(){
+      const items = LS.get(todoKey, []);
+      todoListEl.innerHTML = '';
+      items.forEach((t, i)=>{
+        const row = document.createElement('div'); row.className='todo-item';
+        const cb = document.createElement('input'); cb.type='checkbox'; cb.checked = !!t.done;
+        const input = document.createElement('input'); input.type='text'; input.value = t.text || '';
+        const del = document.createElement('button'); del.textContent='✕';
+        cb.onchange = ()=>{ items[i].done = cb.checked; LS.set(todoKey, items); };
+        input.onchange = ()=>{ items[i].text = input.value; LS.set(todoKey, items); };
+        del.onclick = ()=>{ items.splice(i,1); LS.set(todoKey, items); renderTodos(); };
+        if(t.done) input.style.textDecoration = 'line-through';
+        cb.addEventListener('change', ()=>{ input.style.textDecoration = cb.checked? 'line-through':'none'; });
+        row.append(cb, input, del);
+        todoListEl.appendChild(row);
+      });
+    }
+
+    function addTodo(){
+      const items = LS.get(todoKey, []);
+      items.push({text:'', done:false}); LS.set(todoKey, items); renderTodos();
+    }
+    function clearCompleted(){
+      const items = LS.get(todoKey, []).filter(t=>!t.done); LS.set(todoKey, items); renderTodos();
+    }
+    document.getElementById('addTodo').onclick = addTodo;
+    document.getElementById('clearCompleted').onclick = clearCompleted;
+    renderTodos();
+
+    /* =====================
+       Weather (Open‑Meteo)
+    ====================== */
+    const cityKey = 'sp_city_v1';
+    const unitsKey = 'sp_units_v1';
+    let units = LS.get(unitsKey, 'c'); // 'c' or 'f'
+
+    const tempEl = document.getElementById('temp');
+    const condEl = document.getElementById('conditions');
+    const windEl = document.getElementById('wind');
+    const cityLabel = document.getElementById('cityLabel');
+    const updatedEl = document.getElementById('updated');
+    const unitsLabel = document.getElementById('unitsLabel');
+
+    function setUnits(u){ units=u; LS.set(unitsKey, u); unitsLabel.textContent = u.toUpperCase(); }
+    setUnits(units);
+
+    document.getElementById('toggleUnits').onclick = ()=>{ setUnits(units==='c'?'f':'c'); fetchWeather(); };
+
+    async function geocodeCity(name){
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1`;
+      const r = await fetch(url); if(!r.ok) throw new Error('geocoding failed');
+      const j = await r.json();
+      if(j.results && j.results.length){
+        const g = j.results[0];
+        return { name: `${g.name}${g.admin1? ', '+g.admin1:''}${g.country? ', '+g.country:''}`, lat: g.latitude, lon: g.longitude };
+      }
+      throw new Error('city not found');
+    }
+
+    async function getWeather(lat, lon){
+      const metric = units==='c';
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,weather_code&wind_speed_unit=${metric?'kmh':'mph'}&temperature_unit=${metric?'celsius':'fahrenheit'}&timezone=auto`;
+      const r = await fetch(url); if(!r.ok) throw new Error('weather failed');
+      return r.json();
+    }
+
+    function codeToText(code){
+      const map = {
+        0:'Clear', 1:'Mainly clear', 2:'Partly cloudy', 3:'Overcast', 45:'Fog', 48:'Depositing rime fog',
+        51:'Light drizzle', 53:'Drizzle', 55:'Dense drizzle', 61:'Light rain', 63:'Rain', 65:'Heavy rain',
+        71:'Light snow', 73:'Snow', 75:'Heavy snow', 80:'Rain showers', 81:'Rain showers', 82:'Heavy showers',
+        95:'Thunderstorm', 96:'Thunderstorm w/ hail', 99:'Heavy hail'
+      };
+      return map[code] || '—';
+    }
+
+    async function fetchWeather(){
+      try{
+        tempEl.textContent = '…'; condEl.textContent=''; windEl.textContent=''; updatedEl.textContent='';
+        const savedCity = LS.get(cityKey, null);
+        let coords, label;
+        if(savedCity && savedCity.lat){ coords = {lat:savedCity.lat, lon:savedCity.lon}; label = savedCity.name; }
+        else if(navigator.geolocation){
+          const pos = await new Promise((res, rej)=> navigator.geolocation.getCurrentPosition(res, rej, {enableHighAccuracy:false, timeout:7000}));
+          coords = {lat: pos.coords.latitude, lon: pos.coords.longitude}; label = 'Your location';
+        } else {
+          throw new Error('no location');
+        }
+        const data = await getWeather(coords.lat, coords.lon);
+        const c = data.current;
+        tempEl.textContent = Math.round(c.temperature_2m) + '°';
+        condEl.textContent = codeToText(c.weather_code);
+        windEl.textContent = `Wind: ${Math.round(c.wind_speed_10m)} ${units==='c'?'km/h':'mph'}`;
+        cityLabel.textContent = ` · ${label}`;
+        updatedEl.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+      } catch(e){
+        condEl.textContent = 'Weather unavailable';
+        tempEl.textContent = '--°'; windEl.textContent=''; cityLabel.textContent='';
+      }
+    }
+
+    document.getElementById('refreshWeather').onclick = fetchWeather;
+    document.getElementById('setCity').onclick = async ()=>{
+      const name = prompt('Enter city name:'); if(!name) return;
+      try{
+        const g = await geocodeCity(name);
+        LS.set(cityKey, g); fetchWeather();
+      }catch(e){ alert('City not found.'); }
+    };
+
+    fetchWeather();
+
+    /* =====================
+       Init
+    ====================== */
+    function init(){ renderBookmarks(); }
+    init();
+  </script>
+</body>
+</html>
