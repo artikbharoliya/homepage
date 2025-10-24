@@ -1,0 +1,76 @@
+﻿:root{
+  --bg: #0f172a;          /* slate-900 */
+  --card: #111827;        /* gray-900 */
+  --muted: #64748b;       /* slate-500 */
+  --text: #e5e7eb;        /* gray-200 */
+  --accent: #22c55e;      /* green-500 */
+  --accent-2: #60a5fa;    /* blue-400 */
+  --danger: #ef4444;      /* red-500 */
+  --border: #1f2937;      /* gray-800 */
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:linear-gradient(180deg, #0b1220, #0f172a);
+  color:var(--text);
+  font: 16px/1.5 Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+}
+.muted{color:var(--muted)}
+.app{
+  display:grid;
+  grid-template-rows: auto auto 1fr;
+  grid-template-columns: 1fr;
+  min-height:100vh;
+}
+
+/* NAVBAR (Bookmarks) */
+.navbar{
+  display:flex; gap:.5rem; align-items:center; padding:.75rem 1rem; border-bottom:1px solid var(--border);
+  background:rgba(17,24,39,.7); backdrop-filter: blur(10px); position:sticky; top:0; z-index:20;
+}
+.nav-title{font-weight:700; letter-spacing:.3px; margin-right:.5rem}
+.bookmarks{display:flex; gap:.35rem; flex-wrap:wrap}
+.chip{
+  border:1px solid var(--border); background:#0b1220; padding:.35rem .6rem; border-radius:999px; text-decoration:none; color:var(--text);
+  display:inline-flex; align-items:center; gap:.4rem; transition:all .15s ease; white-space:nowrap; max-width:240px; overflow:hidden; text-overflow:ellipsis;
+}
+.chip:hover{border-color:#334155; transform:translateY(-1px)}
+.chip .xbtn{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:.9rem}
+.nav-actions{margin-left:auto; display:flex; gap:.5rem}
+.btn{
+  border:1px solid var(--border); background:linear-gradient(180deg, #0f172a, #0b1220); color:var(--text);
+  border-radius:.6rem; padding:.45rem .75rem; cursor:pointer; display:inline-flex; gap:.4rem; align-items:center;
+}
+.btn:hover{border-color:#334155}
+
+/* TOP BAR (Toolbar + Info) */
+.topbar{display:flex; gap:1rem; padding: .6rem 1rem; border-bottom:1px solid var(--border); align-items:center; background:rgba(2,6,23,.6);}
+.toolbar{display:flex; gap:.35rem; flex-wrap:wrap}
+.tbtn{border:1px solid var(--border); background:#0b1220; color:var(--text); border-radius:.5rem; padding:.35rem .55rem; cursor:pointer}
+.tbtn:hover{border-color:#334155}
+.divider{width:1px; background:var(--border); margin:0 .25rem}
+.status{margin-left:auto; display:flex; gap:1rem; color:var(--muted); font-size:.9rem}
+
+/* LAYOUT */
+.main{display:grid; grid-template-columns: 1fr 320px; gap:1rem; padding:1rem;}
+@media (max-width: 960px){ .main{ grid-template-columns: 1fr; } }
+
+/* EDITOR CARD */
+.card{background:rgba(17,24,39,.6); border:1px solid var(--border); border-radius:1rem; box-shadow: 0 10px 30px rgba(0,0,0,.25);}
+.editor{min-height:60vh; padding:1rem 1.2rem; outline:none; font-size:1.05rem}
+.editor:empty:before{content:"Type / to insertâ€¦"; color:var(--muted)}
+
+/* SIDEBAR */
+.sidebar{display:grid; gap:1rem}
+.card h3{margin:.9rem 1rem .3rem; font-size:1rem; color:#d1d5db}
+.card .content{padding: .1rem 1rem 1rem}
+
+/* TODO */
+.todo-list{display:grid; gap:.4rem}
+.todo-item{display:flex; gap:.6rem; align-items:center}
+.todo-item input[type="text"]{flex:1; padding:.4rem .6rem; border-radius:.4rem; border:1px solid var(--border); background:#0b1220; color:var(--text)}
+.todo-item button{border:1px solid var(--border); background:#0b1220; color:var(--text); border-radius:.4rem; padding:.35rem .55rem; cursor:pointer}
+
+/* FOOTER */
+.footer{padding:1rem; text-align:center; color:var(--muted); font-size:.9rem}
